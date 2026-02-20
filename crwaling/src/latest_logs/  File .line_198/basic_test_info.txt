@@ -1,0 +1,29 @@
+  File .py:198:SB
+--------------------------------------------------------------------
+Last Page: chrome://new-tab-page/
+ Duration: 2.70s
+  Browser: Chrome 144.0.7559.133
+   Driver: chromedriver 144.0.7559.133
+Timestamp: 1771436288  (Unix Timestamp)
+     Date: Thursday, 19 February 2026
+     Time: 2:38:08 AM  (대한민국 표준시, UTC+09:00)
+--------------------------------------------------------------------
+Traceback:
+  Traceback (most recent call last):
+  File "C:\Users\eogy0\AppData\Local\Temp\ipykernel_12252\2877410216.py", line 4, in <module>
+    sb.open(BASE_DOMAIN)
+  File "C:\Users\eogy0\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\seleniumbase\fixtures\base_case.py", line 239, in open
+    self.activate_cdp_mode(url, **kwargs)
+  File "C:\Users\eogy0\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\seleniumbase\fixtures\base_case.py", line 5073, in activate_cdp_mode
+    self.driver.uc_open_with_cdp_mode(url, **kwargs)
+  File "C:\Users\eogy0\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\seleniumbase\core\browser_launcher.py", line 5952, in <lambda>
+    lambda *args, **kwargs: uc_open_with_cdp_mode(
+                            ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\eogy0\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\seleniumbase\core\browser_launcher.py", line 692, in uc_open_with_cdp_mode
+    driver.cdp_base = loop.run_until_complete(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\asyncio\base_events.py", line 630, in run_until_complete
+    self._check_running()
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\asyncio\base_events.py", line 591, in _check_running
+    raise RuntimeError(
+RuntimeError: Cannot run the event loop while another loop is running
