@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>학교 보호구역 지도</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+
+<!-- 토큰 분리 -->
+<script src="config.js"></script>
+<script>
+mapboxgl.accessToken = MAPBOX_TOKEN;
+</script>
+
+<style>
+body { margin:0; font-family: sans-serif; }
+#map { position:absolute; top:0; bottom:0; width:100%; }
+
+/* 중앙 검색 패널 */
+#uiPanel {
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%, -50%);
+  z-index:2;
+  background:white;
+  padding:28px 34px;
+  width:420px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.2);
+  border-radius:14px;
+  text-align:center;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+#uiPanel.hidden {
+  opacity:0;
+  transform:translate(-50%, -60%);
+  pointer-events:none;
+}
+#uiPanel h2 {
+  margin:0 0 10px 0;
+  font-size:18px;
+  font-weight:650;
+  letter-spacing:-0.2px;
+}
+
+select, input {
+  width:100%;
+  padding:10px 12px;
+  margin-top:10px;
+  font-size:14px;
+  border:1px solid #ddd;
+  border-radius:10px;
+  outline:none;
+}
+select:focus, input:focus { border-color:#aaa; }
+
+#searchBtn {
+  width:100%;
+  padding:12px;
+  margin-top:12px;
+  background:#111;
+  color:white;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:14px;
+  transition:all 0.2s ease;
+}
+#searchBtn:hover {
+  background:#333;
+}
+
+/* 우상단 리셋 버튼 */
+#resetBtn {
+  position:absolute;
+  top:20px;
+  right:20px;
+  padding:10px 14px;
+  background:#111;
+  color:white;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  display:none;
+  z-index:3;
+  transition:all 0.2s ease;
+}
+#resetBtn:hover {
+  background:#333;
+}
+
+/* 우측 카드 */
+#infoCard {
+  position:absolute;
+  top:90px;
+  right:20px;
+  width:280px;
+  background:white;
+  padding:18px 18px;
+  border-radius:14px;
+  box-shadow:0 8px 25px rgba(0,0,0,0.15);
+  display:none;
+  z-index:3;
+}
+#infoCard h3 {
+  margin:0 0 6px 0;
+  font-size:17px;
+  letter-spacing:-0.2px;
+}
+#infoCard p {
+  margin:0 0 14px 0;
+  font-size:13px;
+  color:#666;
+  line-height:1.35;
+}
+.cardStat {
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  font-size:14px;
+}
+.cardStat strong {
+  font-size:20px;
+  color:#c62828;
+}
+</style>
+</head>
+
+<body>
+
+<div id="uiPanel">
+  <h2>학교 이름을 입력하세요</h2>
+
+  <select id="regionSelect">
+    <option value="서울특별시">서울특별시</option>
+    <option value="대구광역시">대구광역시</option>
+    <option value="부산광역시">부산광역시</option>
+    <option value="인천광역시">인천광역시</option>
+    <option value="광주광역시">광주광역시</option>
+    <option value="대전광역시">대전광역시</option>
+    <option value="울산광역시">울산광역시</option>
+    <option value="세종특별자치시">세종특별자치시</option>
+    <option value="경기도">경기도</option>
+    <option value="강원특별자치도">강원특별자치도</option>
+    <option value="충청북도">충청북도</option>
+    <option value="충청남도">충청남도</option>
+    <option value="전라북도">전라북도</option>
+    <option value="전라남도">전라남도</option>
+    <option value="경상북도">경상북도</option>
+    <option value="경상남도">경상남도</option>
+    <option value="제주특별자치도">제주특별자치도</option>
+  </select>
+
+  <input type="text" id="schoolInput" list="autoList" placeholder="학교명 입력">
+  <button id="searchBtn">검색하기</button>
+</div>
+
+<button id="resetBtn">초기화</button>
+
+<div id="infoCard">
+  <h3 id="cardTitle"></h3>
+  <p id="cardAddress"></p>
+  <div class="cardStat">
+    <span>유해업소</span>
+    <strong id="cardBizCount"></strong>
+  </div>
+</div>
+
+<datalist id="autoList"></datalist>
+<div id="map"></div>
+
+<script>
+
+const map = new mapboxgl.Map({
+ container:'map',
+ style:'mapbox://styles/mapbox/light-v11',
+ center:[127.5,36.5],
+ zoom:7
+});
+
+let bizPopup=null;
+
+map.on('load',()=>{
+
+// =====================
+// Sources
+// =====================
+
+map.addSource('schools',{
+ type:'vector',
+ url:'mapbox://eogy04.b2z54biz'
+});
+
+map.addSource('zones',{
+ type:'vector',
+ url:'mapbox://eogy04.4rdxxkmd'
+});
+
+map.addSource('biz-official',{
+ type:'vector',
+ url:'mapbox://eogy04.ajw68pws'
+});
+
+map.addSource('biz-crawled',{
+ type:'vector',
+ url:'mapbox://eogy04.1cijtqk0'
+});
+
+// =====================
+// 보호구역 레이어 (prototype 방식)
+// =====================
+
+map.addLayer({
+ id:'zones-base',
+ type:'fill',
+ source:'zones',
+ 'source-layer':'zones_tiles-c01c0n',
+ paint:{'fill-color':'#FFD821','fill-opacity':0.2}
+});
+
+// 선택된 보호구역
+map.addLayer({
+ id:'zones-highlight',
+ type:'fill',
+ source:'zones',
+ 'source-layer':'zones_tiles-c01c0n',
+ paint:{'fill-color':'#FFD821','fill-opacity':0.55},
+ filter:['==','school_id','']
+});
+
+// 보호구역 테두리
+map.addLayer({
+ id:'zones-outline',
+ type:'line',
+ source:'zones',
+ 'source-layer':'zones_tiles-c01c0n',
+ paint:{'line-color':'#FFA400','line-width':3}
+});
+
+// 선택된 보호구역 테두리 
+map.addLayer({
+ id:'zones-highlight-outline',
+ type:'line',
+ source:'zones',
+ 'source-layer':'zones_tiles-c01c0n',
+ paint:{'line-color':'#FFA400','line-width':4},
+ filter:['==','school_id','']
+});
+
+// 학교
+map.addLayer({
+ id:'schools-layer',
+ type:'circle',
+ source:'schools',
+ 'source-layer':'schools_all-d63hdy',
+ paint: {
+  'circle-radius': 6,
+  'circle-color': '#0055ff',
+  'circle-stroke-width': 2,
+  'circle-stroke-color': '#ffffff'
+}
+});
+
+// 유해업소
+map.addLayer({
+ id:'biz-layer',
+ type:'circle',
+ source:'biz-official',
+ 'source-layer':'biz_official_all-31qx3e',
+ paint:{
+  'circle-radius': 7,
+  'circle-color':'#c62828',
+  'circle-opacity':0.9,
+  'circle-stroke-width':1.5,
+  'circle-stroke-color':'#ffffff'
+},
+ filter:['==','school_id','']
+});
+
+// =====================
+// 지역 카메라 이동
+// =====================
+
+const regionCenters={
+ "서울특별시":[126.9780,37.5665],
+ "대구광역시":[128.6014,35.8714],
+ "부산광역시":[129.0756,35.1796]
+};
+
+document.getElementById("regionSelect").addEventListener("change",function(){
+ const c=regionCenters[this.value];
+ if(c) map.flyTo({center:c,zoom:10});
+});
+
+// =====================
+// 자동완성 (vector 기반)
+// =====================
+
+document.getElementById("schoolInput").addEventListener("input",function(){
+
+ const value=this.value.trim();
+
+ const features=map.querySourceFeatures('schools',{
+   sourceLayer:'schools_all-d63hdy'
+ });
+
+ const suggestions=features
+   .filter(f=>f.properties.school_name.includes(value))
+   .slice(0,8);
+
+ const list=document.getElementById("autoList");
+ list.innerHTML="";
+
+ suggestions.forEach(item=>{
+   const opt=document.createElement("option");
+   opt.value=item.properties.school_name;
+   list.appendChild(opt);
+ });
+
+});
+
+// =====================
+// 검색
+// =====================
+
+document.getElementById("searchBtn").addEventListener("click",()=>{
+
+ const name=document.getElementById("schoolInput").value.trim();
+
+ const features=map.querySourceFeatures('schools',{
+   sourceLayer:'schools_all-d63hdy'
+ });
+
+ const school=features.find(f=>f.properties.school_name===name);
+ if(!school){ alert("학교 없음"); return; }
+
+ const schoolId=school.properties.school_id;
+
+ map.flyTo({center:school.geometry.coordinates,zoom:16});
+
+ // 보호구역 강조
+ map.setFilter('zones-highlight',['==','school_id',schoolId]);
+ map.setFilter('zones-highlight-outline',['==','school_id',schoolId]);
+
+ // 업소 필터
+ map.setFilter('biz-layer',['==','school_id',schoolId]);
+
+ // 정확 집계
+ const bizFeatures=map.querySourceFeatures('biz-official',{
+   sourceLayer:'biz_official_all-31qx3e'
+ });
+
+ const bizCount=bizFeatures
+   .filter(f=>f.properties.school_id===schoolId)
+   .length;
+
+ document.getElementById("cardTitle").innerText=name;
+ document.getElementById("cardBizCount").innerText=`${bizCount}곳`;
+
+ document.getElementById("infoCard").style.display="block";
+ document.getElementById("uiPanel").classList.add("hidden");
+ document.getElementById("resetBtn").style.display="block";
+
+});
+
+// =====================
+// 리셋
+// =====================
+
+document.getElementById("resetBtn").addEventListener("click",()=>{
+ map.setFilter('zones-highlight',['==','school_id','']);
+ map.setFilter('zones-highlight-outline',['==','school_id','']);
+ map.setFilter('biz-layer',['==','school_id','']);
+ map.flyTo({center:[127.5,36.5],zoom:7});
+ document.getElementById("infoCard").style.display="none";
+ document.getElementById("uiPanel").classList.remove("hidden");
+ document.getElementById("resetBtn").style.display="none";
+});
+
+});
+
+</script>
+</body>
+</html>
