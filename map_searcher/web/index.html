@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>우리 아이 학교 근처 성매매 의심 업소 찾기</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+
+<style>
+  body { margin:0; font-family: sans-serif; }
+  #map { position:absolute; top:0; bottom:0; width:100%; }
+
+  /* 중앙 검색 패널 */
+#uiPanel {
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%, -50%);
+  z-index:2;
+  background:white;
+  padding:28px 34px;
+  width:420px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.2);
+  border-radius:14px;
+  text-align:center;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+#uiPanel.hidden {
+  opacity:0;
+  transform:translate(-50%, -60%);
+  pointer-events:none;
+}
+#uiPanel h2 {
+  margin:0 0 10px 0;
+  font-size:18px;
+  font-weight:650;
+  letter-spacing:-0.2px;
+}
+select, input {
+  width:100%;
+  padding:10px 12px;
+  margin-top:10px;
+  font-size:14px;
+  border:1px solid #ddd;
+  border-radius:10px;
+  outline:none;
+}
+select:focus, input:focus { border-color:#aaa; }
+
+#searchBtn {
+  width:100%;
+  padding:12px;
+  margin-top:12px;
+  background:#111;
+  color:white;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:14px;
+}
+
+/* 우상단 리셋 버튼 */
+#resetBtn {
+  position:absolute;
+  top:20px;
+  right:20px;
+  padding:10px 14px;
+  background:#111;
+  color:white;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  display:none;
+  z-index:3;
+}
+
+/* 우측 카드 */
+#infoCard {
+  position:absolute;
+  top:90px;
+  right:20px;
+  width:280px;
+  background:white;
+  padding:18px 18px;
+  border-radius:14px;
+  box-shadow:0 8px 25px rgba(0,0,0,0.15);
+  display:none;
+  z-index:3;
+}
+#infoCard h3 {
+  margin:0 0 6px 0;
+  font-size:17px;
+  letter-spacing:-0.2px;
+}
+#infoCard p {
+  margin:0 0 14px 0;
+  font-size:13px;
+  color:#666;
+  line-height:1.35;
+}
+.cardStat {
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  font-size:14px;
+}
+.cardStat strong {
+  font-size:20px;
+  color:#c62828;
+}
+</style>
+</head>
+<body>
+
+<div id="uiPanel">
+  <h2>찾고 싶은 학교 이름을 입력하세요</h2>
+  <select id="regionSelect">
+    <option value="nation" selected>전국</option>
+  </select>
+  <input type="text" id="schoolInput" placeholder="학교명 입력" list="autoList">
+  <button id="searchBtn">검색하기</button>
+</div>
+
+<button id="resetBtn">다른 학교 찾아보기</button>
+
+<div id="infoCard">
+  <h3 id="cardTitle"></h3>
+  <p id="cardAddress"></p>
+  <div class="cardStat">
+    <span>유해업소</span>
+    <strong id="cardBizCount"></strong>
+  </div>
+</div>
+
+<datalist id="autoList"></datalist>
+<div id="map"></div>
+
+<script src="../config.js">
+mapboxgl.accessToken = MAPBOX_TOKEN;
+
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/light-v11',
+  center: [127.5, 36.5],
+  zoom: 7
+});
+
+let bizPopup = null;
+let schoolMap = {};
+let autoFilled = false;
+
+map.on('load', () => {
+
+  // =========================
+  // Sources
+  // =========================
+
+  map.addSource('schools', {
+    type: 'vector',
+    url: 'mapbox://eogy04.b2z54biz'
+  });
+
+  map.addSource('zones', {
+    type: 'vector',
+    url: 'mapbox://eogy04.4rdxxkmd'
+  });
+
+  map.addSource('biz-official', {
+    type: 'vector',
+    url: 'mapbox://eogy04.ajw68pws'
+  });
+
+  map.addSource('biz-crawled', {
+    type: 'vector',
+    url: 'mapbox://eogy04.1cijtqk0'
+  });
+
+  // =========================
+  // Layers
+  // =========================
+
+  map.addLayer({
+    id: 'zones-fill',
+    type: 'fill',
+    source: 'zones',
+    'source-layer': 'zones_tiles-c01c0n',
+    paint: { 'fill-color':'#FFD821','fill-opacity':0.3 },
+    layout: { visibility:'none' },
+    filter:['==','zone_id','']
+  });
+
+  map.addLayer({
+    id: 'schools-layer',
+    type: 'circle',
+    source: 'schools',
+    'source-layer': 'schools_all-d63hdy',
+    paint: {
+      'circle-radius': 4,
+      'circle-color': '#0055ff',
+      'circle-stroke-width': 1,
+      'circle-stroke-color': '#ffffff'
+    }
+  });
+
+  map.addLayer({
+    id: 'biz-official-layer',
+    type: 'circle',
+    source: 'biz-official',
+    'source-layer': 'biz_official_all-31qx3e',
+    paint: {
+      'circle-radius':6,
+      'circle-color':'#d7191c',
+      'circle-opacity':0.9
+    },
+    filter:['==','school_id','']
+  });
+
+  map.addLayer({
+    id: 'biz-crawled-layer',
+    type: 'circle',
+    source: 'biz-crawled',
+    'source-layer': 'biz_crawled_seoul-6b859f',
+    paint: {
+      'circle-radius': 4,
+      'circle-color': '#9900ff',
+      'circle-opacity': 0.8
+    },
+    filter:['==','school_id','']
+  });
+
+  
+  const regionCenters = {
+    "서울특별시": [126.9780, 37.5665],
+    "부산광역시": [129.0756, 35.1796],
+    "대구광역시": [128.6014, 35.8714],
+    "인천광역시": [126.7052, 37.4563],
+    "광주광역시": [126.8526, 35.1595],
+    "대전광역시": [127.3845, 36.3504],
+    "울산광역시": [129.3114, 35.5384],
+    "세종특별자치시": [127.2890, 36.4800],
+    "경기도": [127.5183, 37.4138],
+    "강원특별자치도": [128.1555, 37.8228],
+    "충청북도": [127.4917, 36.6357],
+    "충청남도": [126.8000, 36.5184],
+    "전라북도": [127.1088, 35.8200],
+    "전라남도": [126.4630, 34.8161],
+    "경상북도": [128.8889, 36.4919],
+    "경상남도": [128.2132, 35.4606],
+    "제주특별자치도": [126.5312, 33.4996]
+  };    
+
+  // =========================
+  // 자동완성 세팅
+  // =========================
+
+  map.on('sourcedata', (e) => {
+
+  if (!autoFilled && e.sourceId === 'schools' && e.isSourceLoaded) {
+
+    const features = map.querySourceFeatures('schools', {
+      sourceLayer: 'schools_all-d63hdy'
+    });
+
+    const dataList = document.getElementById("autoList");
+
+    features.forEach(f=>{
+      const name = f.properties.school_name;
+      schoolMap[name] = f;
+
+      const option = document.createElement("option");
+      option.value = name;
+      dataList.appendChild(option);
+    });
+    autoFilled = true;
+
+  }
+
+});
+
+  // =========================
+  // 검색 기능
+  // =========================
+
+  const regionSelect = document.getElementById("regionSelect");
+
+    Object.keys(regionCenters).forEach(region=>{
+    const opt = document.createElement("option");
+    opt.value = region;
+    opt.innerText = region;
+    regionSelect.appendChild(opt);
+    });
+
+    regionSelect.addEventListener("change", function(){
+
+  const selected = this.value;
+
+  if(selected === "nation"){
+    map.flyTo({ center:[127.5,36.5], zoom:7 });
+    return;
+  }
+
+  const center = regionCenters[selected];
+
+  map.flyTo({
+    center:center,
+    zoom:10
+  });
+
+});
+
+  document.getElementById("searchBtn").addEventListener("click",()=>{
+
+    const name = document.getElementById("schoolInput").value.trim();
+    const school = schoolMap[name];
+    if(!school){
+      alert("학교를 찾을 수 없습니다.");
+      return;
+    }
+
+    const schoolId = school.properties.school_id;
+    const coords = school.geometry.coordinates;
+
+    map.flyTo({ center:coords, zoom:16 });
+
+    // 보호구역 표시
+    map.setLayoutProperty('zones-fill','visibility','visible');
+
+    const zoneIds = [];
+    if (school.properties.absolute_zone_ids)
+      zoneIds.push(...school.properties.absolute_zone_ids.split('|'));
+    if (school.properties.relative_zone_ids)
+      zoneIds.push(...school.properties.relative_zone_ids.split('|'));
+
+    map.setFilter('zones-fill',[
+      'in',['get','zone_id'],['literal',zoneIds]
+    ]);
+
+    // 업소 필터 적용 (공식 + 크롤링)
+    map.setFilter('biz-official-layer',
+      ['==',['get','school_id'],schoolId]);
+
+    map.setFilter('biz-crawled-layer',
+      ['==',['get','school_id'],schoolId]);
+
+    // 개수 집계
+    const official = map.querySourceFeatures('biz-official',{
+      sourceLayer:'biz_official_all-31qx3e',
+      filter:['==',['get','school_id'],schoolId]
+    });
+
+    const crawled = map.querySourceFeatures('biz-crawled',{
+      sourceLayer:'biz_crawled_seoul-6b859f',
+      filter:['==',['get','school_id'],schoolId]
+    });
+
+    document.getElementById("cardTitle").innerText = name;
+    document.getElementById("cardBizCount").innerText =
+      (official.length + crawled.length) + "곳";
+
+    document.getElementById("infoCard").style.display="block";
+    document.getElementById("uiPanel").classList.add("hidden");
+    document.getElementById("resetBtn").style.display="block";
+  });
+
+  // =========================
+  // 리셋
+  // =========================
+
+  document.getElementById("resetBtn").addEventListener("click",()=>{
+
+    map.setLayoutProperty('zones-fill','visibility','none');
+
+    map.setFilter('biz-official-layer',['==','school_id','']);
+    map.setFilter('biz-crawled-layer',['==','school_id','']);
+
+    map.flyTo({center:[127.5,36.5],zoom:7});
+
+    document.getElementById("uiPanel").classList.remove("hidden");
+    document.getElementById("resetBtn").style.display="none";
+    document.getElementById("infoCard").style.display="none";
+  });
+
+  // =========================
+  // Hover (공식 + 크롤링 둘 다)
+  // =========================
+
+  ['biz-official-layer','biz-crawled-layer'].forEach(layer=>{
+
+    map.on('mouseenter',layer,()=>{
+      map.getCanvas().style.cursor='pointer';
+    });
+
+    map.on('mouseleave',layer,()=>{
+      map.getCanvas().style.cursor='';
+      if(bizPopup){bizPopup.remove();bizPopup=null;}
+    });
+
+    map.on('mousemove',layer,(e)=>{
+      const f=e.features[0];
+      const coords=f.geometry.coordinates.slice();
+      const name=f.properties.name;
+
+      if(!bizPopup){
+        bizPopup=new mapboxgl.Popup({
+          closeButton:false,
+          closeOnClick:false,
+          offset:10
+        });
+      }
+
+      bizPopup
+        .setLngLat(coords)
+        .setHTML(`<div style="font-size:12px;">${name}</div>`)
+        .addTo(map);
+    });
+
+  });
+
+});
+</script>
+
+</body>
+</html>
