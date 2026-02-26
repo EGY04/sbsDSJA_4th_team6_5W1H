@@ -2,9 +2,6 @@
 .env
 map_searcher/.env
 
-# mapbox token
-map_searcher/web/config.js
-
 # 대용량 데이터
 map_searcher/data_raw/
 map_searcher/data_processed/geojson/

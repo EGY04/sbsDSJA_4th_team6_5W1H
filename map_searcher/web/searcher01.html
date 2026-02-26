@@ -15,115 +15,71 @@ mapboxgl.accessToken = MAPBOX_TOKEN;
 </script>
 
 <style>
-body { margin:0; font-family: sans-serif; }
+body { margin:0; font-family:sans-serif; }
 #map { position:absolute; top:0; bottom:0; width:100%; }
 
-/* 중앙 검색 패널 */
-#uiPanel {
-  position:absolute;
-  top:50%;
-  left:50%;
-  transform:translate(-50%, -50%);
-  z-index:2;
-  background:white;
-  padding:28px 34px;
-  width:420px;
-  box-shadow:0 10px 30px rgba(0,0,0,0.2);
-  border-radius:14px;
-  text-align:center;
-  transition: opacity 0.4s ease, transform 0.4s ease;
+/* 중앙 패널 */
+#uiPanel{
+ position:absolute;
+ top:50%; left:50%;
+ transform:translate(-50%,-50%);
+ z-index:2;
+ background:white;
+ padding:28px 34px;
+ width:420px;
+ box-shadow:0 10px 30px rgba(0,0,0,0.2);
+ border-radius:14px;
+ text-align:center;
+ transition:opacity 0.4s ease, transform 0.4s ease;
 }
-#uiPanel.hidden {
-  opacity:0;
-  transform:translate(-50%, -60%);
-  pointer-events:none;
-}
-#uiPanel h2 {
-  margin:0 0 10px 0;
-  font-size:18px;
-  font-weight:650;
-  letter-spacing:-0.2px;
+#uiPanel.hidden{
+ opacity:0;
+ transform:translate(-50%,-60%);
+ pointer-events:none;
 }
 
-select, input {
-  width:100%;
-  padding:10px 12px;
-  margin-top:10px;
-  font-size:14px;
-  border:1px solid #ddd;
-  border-radius:10px;
-  outline:none;
-}
-select:focus, input:focus { border-color:#aaa; }
-
-#searchBtn {
-  width:100%;
-  padding:12px;
-  margin-top:12px;
-  background:#111;
-  color:white;
-  border:none;
-  border-radius:10px;
-  cursor:pointer;
-  font-size:14px;
-  transition:all 0.2s ease;
-}
-#searchBtn:hover {
-  background:#333;
+select,input{
+ width:100%;
+ padding:10px 12px;
+ margin-top:10px;
+ border:1px solid #ddd;
+ border-radius:10px;
 }
 
-/* 우상단 리셋 버튼 */
-#resetBtn {
-  position:absolute;
-  top:20px;
-  right:20px;
-  padding:10px 14px;
-  background:#111;
-  color:white;
-  border:none;
-  border-radius:10px;
-  cursor:pointer;
-  display:none;
-  z-index:3;
-  transition:all 0.2s ease;
-}
-#resetBtn:hover {
-  background:#333;
+button{
+ width:100%;
+ padding:12px;
+ margin-top:12px;
+ background:#111;
+ color:white;
+ border:none;
+ border-radius:10px;
+ cursor:pointer;
 }
 
-/* 우측 카드 */
-#infoCard {
-  position:absolute;
-  top:90px;
-  right:20px;
-  width:280px;
-  background:white;
-  padding:18px 18px;
-  border-radius:14px;
-  box-shadow:0 8px 25px rgba(0,0,0,0.15);
-  display:none;
-  z-index:3;
+#resetBtn{
+ position:absolute;
+ top:20px; right:20px;
+ padding:10px 14px;
+ background:#111;
+ color:white;
+ border:none;
+ border-radius:10px;
+ cursor:pointer;
+ display:none;
+ z-index:3;
 }
-#infoCard h3 {
-  margin:0 0 6px 0;
-  font-size:17px;
-  letter-spacing:-0.2px;
-}
-#infoCard p {
-  margin:0 0 14px 0;
-  font-size:13px;
-  color:#666;
-  line-height:1.35;
-}
-.cardStat {
-  display:flex;
-  justify-content:space-between;
-  align-items:baseline;
-  font-size:14px;
-}
-.cardStat strong {
-  font-size:20px;
-  color:#c62828;
+
+#infoCard{
+ position:absolute;
+ top:90px; right:20px;
+ width:280px;
+ background:white;
+ padding:18px;
+ border-radius:14px;
+ box-shadow:0 8px 25px rgba(0,0,0,0.15);
+ display:none;
+ z-index:3;
 }
 </style>
 </head>
@@ -162,10 +118,7 @@ select:focus, input:focus { border-color:#aaa; }
 <div id="infoCard">
   <h3 id="cardTitle"></h3>
   <p id="cardAddress"></p>
-  <div class="cardStat">
-    <span>유해업소</span>
-    <strong id="cardBizCount"></strong>
-  </div>
+  <div>유해업소 <strong id="cardBizCount"></strong></div>
 </div>
 
 <datalist id="autoList"></datalist>
@@ -220,7 +173,6 @@ map.addLayer({
  paint:{'fill-color':'#FFD821','fill-opacity':0.2}
 });
 
-// 선택된 보호구역
 map.addLayer({
  id:'zones-highlight',
  type:'fill',
@@ -230,7 +182,6 @@ map.addLayer({
  filter:['==','school_id','']
 });
 
-// 보호구역 테두리
 map.addLayer({
  id:'zones-outline',
  type:'line',
@@ -239,7 +190,6 @@ map.addLayer({
  paint:{'line-color':'#FFA400','line-width':3}
 });
 
-// 선택된 보호구역 테두리 
 map.addLayer({
  id:'zones-highlight-outline',
  type:'line',
@@ -255,12 +205,7 @@ map.addLayer({
  type:'circle',
  source:'schools',
  'source-layer':'schools_all-d63hdy',
- paint: {
-  'circle-radius': 6,
-  'circle-color': '#0055ff',
-  'circle-stroke-width': 2,
-  'circle-stroke-color': '#ffffff'
-}
+ paint:{'circle-radius':4,'circle-color':'#0055ff'}
 });
 
 // 유해업소
@@ -269,13 +214,7 @@ map.addLayer({
  type:'circle',
  source:'biz-official',
  'source-layer':'biz_official_all-31qx3e',
- paint:{
-  'circle-radius': 7,
-  'circle-color':'#c62828',
-  'circle-opacity':0.9,
-  'circle-stroke-width':1.5,
-  'circle-stroke-color':'#ffffff'
-},
+ paint:{'circle-radius':6,'circle-color':'#d7191c'},
  filter:['==','school_id','']
 });
 
